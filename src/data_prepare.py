@@ -2,7 +2,9 @@ from itertools import islice
 import pandas as pd
 import numpy as np
 import cv2
-from const import DATA_ROOT, GFP_ROOT, CY3_ROOT
+from const import DATA_ROOT #GFP_ROOT, CY3_ROOT
+from argparse import ArgumentParser
+from pathlib import Path
 
 
 SZ = 20
@@ -20,11 +22,11 @@ def get_frame_average(img, yx, sz, fun=np.median):
     return fun(img[mask])
 
 
-def make_division_adjusted_tracks():
+def make_division_adjusted_tracks(curated_tracks_pth, spots_in_tracks_pth, intensities_pth):
     """Align 1000 curated tracks based on division events"""
 
-    curated_tracks = sorted(pd.read_csv(DATA_ROOT / 'curated_tracks.csv', header=None).astype(int).values.flatten())
-    df = pd.read_csv(DATA_ROOT / 'Spots in tracks statistics.csv', na_values='None', delimiter='\t').dropna()
+    curated_tracks = sorted(pd.read_csv(curated_tracks_pth, header=None).astype(int).values.flatten())
+    df = pd.read_csv(spots_in_tracks_pth, na_values='None', delimiter='\t').dropna()
     df = df[df['TRACK_ID'].isin(curated_tracks)]
 
     frame_names = [f.name for f in GFP_ROOT.glob('*')]
@@ -78,18 +80,18 @@ def make_division_adjusted_tracks():
     dfo = pd.DataFrame.from_records(rows, columns=pd.MultiIndex.from_tuples(columns))
     for t in curated_tracks:
         dfo[(t, 'time')] -= div_frames[t]
-    dfo.to_csv(DATA_ROOT / 'intensities.csv', index=False)
+    dfo.to_csv(intensities_pth, index=False)
 
 
-def clean_df():
+def clean_df(spots_in_tracks_pth, statistics_clean_pth):
     """Clean and remove unnecessary columns"""
 
-    df = pd.read_csv(DATA_ROOT / 'Spots in tracks statistics.csv', na_values="None", delimiter='\t', header=0,
+    df = pd.read_csv(spots_in_tracks_pth, na_values="None", delimiter='\t', header=0,
                      usecols=['ID', 'TRACK_ID', 'POSITION_X', 'POSITION_Y', 'FRAME']).dropna().astype(int)
-    df.to_csv(DATA_ROOT / 'statistics_clean.csv', index=False)
+    df.to_csv(statistics_clean_pth, index=False)
 
 
-def add_mean_std(df, n_frames=None, verbose=False):
+def add_mean_std(df, curated_tracks_pth, n_frames=None, verbose=False):
     """Add frame average and standard deviation columns for each channel
     Using curated tracks averages"""
 
@@ -97,7 +99,7 @@ def add_mean_std(df, n_frames=None, verbose=False):
 
     print(f'Adding averages and standard deviations for {", ".join(channels)} channels')
 
-    curated_tracks = sorted(pd.read_csv(DATA_ROOT / 'curated_tracks.csv', header=None).astype(int).values.flatten())
+    curated_tracks = sorted(pd.read_csv(curated_tracks_pth, header=None).astype(int).values.flatten())
     df_curated_tracks = df[df['TRACK_ID'].isin(curated_tracks)]
 
     for channel in channels:
@@ -174,14 +176,33 @@ def add_classes(df, gfp_intensity_col, cy3_intensity_col, class_col_prefix='', n
 
 
 if __name__ == '__main__':
-    make_division_adjusted_tracks()
-    clean_df()
-    # df = pd.read_csv(DATA_ROOT / 'statistics_clean.csv')
-    # df = add_mean_std(df, n_frames=None, verbose=True)
-    #
-    # df = add_intensities(df, sz=20, n_frames=None, verbose=True)
-    #
-    # df = add_classes(df, gfp_intensity_col='GFP_20', cy3_intensity_col='Cy3_20',
-    #                  class_col_prefix='sq20', n_green=2, n_red=2)
-    #
-    # df.to_csv(DATA_ROOT / 'statistics_mean_std.csv', index=False, float_format='%.3f')
+    parser = ArgumentParser()
+    parser.add_argument('--microscopy_images', type=str, default=str(DATA_ROOT),
+                        help='Input path to the folder containing microscopy images')
+    parser.add_argument('--curated_tracks', type=str, default=str(DATA_ROOT / 'curated_tracks.csv'),
+                        help='Input path to the list of single division tracks.')
+    parser.add_argument('--spots_in_tracks', type=str, default=str(DATA_ROOT / 'Spots in tracks statistics.csv'),
+                        help='Input path to the tracking csv file.')
+    parser.add_argument('--statistics_clean', type=str, default=str(DATA_ROOT / 'statistics_clean.csv'),
+                        help='Output path to the cleaned tracking csv file.')
+    parser.add_argument('--statistics_mean_std', type=str, default=str(DATA_ROOT / 'statistics_mean_std.csv'),
+                        help='Output path to cleaned cell tracks with added FUCCI averages.')
+    parser.add_argument('--intensities', type=str, default=str(DATA_ROOT / 'intensities.csv'),
+                        help='Output path to single division tracks aligned on division events.')
+    args = parser.parse_args()
+
+    DATA_ROOT = Path(args.microscopy_images)
+    GFP_ROOT = DATA_ROOT / 'GFP'
+    CY3_ROOT = DATA_ROOT / 'Cy3'
+
+    make_division_adjusted_tracks(args.curated_tracks, args.spots_in_tracks, args.intensities)
+    clean_df(args.spots_in_tracks, args.statistics_clean)
+    df = pd.read_csv(args.statistics_clean)
+    df = add_mean_std(df, args.curated_tracks, n_frames=None, verbose=True)
+
+    df = add_intensities(df, sz=20, n_frames=None, verbose=True)
+
+    df = add_classes(df, gfp_intensity_col='GFP_20', cy3_intensity_col='Cy3_20',
+                     class_col_prefix='sq20', n_green=2, n_red=2)
+
+    df.to_csv(args.statistics_mean_std, index=False, float_format='%.3f')

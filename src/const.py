@@ -7,56 +7,9 @@ DATA_ROOT = PACKAGE_DIRECTORY / 'data/Timelapse_2019'
 GFP_ROOT = DATA_ROOT / 'GFP'
 CY3_ROOT = DATA_ROOT / 'Cy3'
 
-double_division_tracks = {
-    46: [13, 165],
-    85: [0, 184],
-    448: [33, 185],
-    1552: [13, 188],
-    1735: [9, 197],
-    1897: [18, 195],
-    1920: [45, 187],
-    2151: [25, 162],
-    2340: [54, 187],
-    2660: [6, 161],
-    2920: [61, 185],
-    2963: [6, 196],
-    2974: [0, 182],
-    3029: [1, 196],
-    3890: [21, 161],
-    3985: [9, 164],
-    4137: [4, 185],
-    4997: [6, 160],
-    6240: [8, 163],
-    6382: [6, 167],
-    6427: [6, 191],
-#     6603: [22, 190],
-    6784: [31, 194],
-    6950: [0, 176],
-    7143: [2, 184],
-    7899: [28, 196],
-    8117: [0, 175],
-    10300: [4, 194],
-    10455: [8, 188],
-    14298: [8, 178],
-    14561: [8, 186],
-    15006: [9, 176],
-    17953: [12, 194],
-    18009: [13, 171],
-    18328: [14, 169],
-    18367: [14, 186],
-    18369: [14, 190],
-    18397: [14, 179],
-    24515: [22, 173],
-    25101: [26, 183],
-    25295: [29, 168],
-    25313: [28, 195],
-    25843: [32, 178],
-    26568: [35, 179],
-#     26675: [35, 175],
-    26934: [37, 181],
-    27161: [39, 182],
-#     27265: [42, 191],
-    27472: [42, 175],
-    27592: [43, 193],
-}
-curated_tracks = sorted(pd.read_csv(DATA_ROOT / 'curated_tracks.csv', header=None).astype(int).values.flatten())
+DOUBLE_DIVISION_TRACKS_PTH = DATA_ROOT / 'double_division_tracks.csv'
+CURATED_TRACKS_TRACKS_PTH = DATA_ROOT / 'curated_tracks.csv'
+
+double_division_tracks = pd.read_csv(DOUBLE_DIVISION_TRACKS_PTH, index_col='track').to_dict(orient='index')
+double_division_tracks = {k: [v['start'], v['stop']] for k, v in double_division_tracks.items()}
+curated_tracks = sorted(pd.read_csv(CURATED_TRACKS_TRACKS_PTH, header=None).astype(int).values.flatten())
