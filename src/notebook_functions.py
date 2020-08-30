@@ -289,15 +289,15 @@ def correlation_plot(df, df_index, som_bmu, gfp_key, cy3_key):
     interp_size = 100
     out = scale(np.array(range(interp_size)))
     red = np.zeros((len(division_indexes), interp_size))
-    green = np.copy(red)
-    SOM_ = np.copy(red)
+    green = np.zeros_like(red)
+    SOM_ = np.zeros_like(red)
 
     for i, key in enumerate(division_indexes):
         start, end = double_division_tracks[key]
         # Attention!! Added +3 to start and -1 to end as there were some imperfections in the division frame estimation
-        inds = df[df['TRACK_ID'] == key][df['FRAME'] >= start + 3][df['FRAME'] <= end - 1]['FRAME'].index
-        time = scale(np.array(range(len(df.loc[inds, 'FRAME'].values)))) #time in hrs
-        red[i, :] = interp(time, df.loc[inds, cy3_key].values, out) #red fluo)
+        inds = df.loc[(df['TRACK_ID'] == key) & (df['FRAME'] >= start + 3) & (df['FRAME'] <= (end - 1)), 'FRAME'].index
+        time = scale(np.arange(len(inds)))  #time in hrs
+        red[i, :] = interp(time, df.loc[inds, cy3_key].values, out) #red fluo
         green[i, :] = interp(time, df.loc[inds, gfp_key].values, out) #green fluo
         SOM_[i, :] = interp(time, df.loc[inds, 'som'].values, out) #predictor spring
 
@@ -308,5 +308,47 @@ def correlation_plot(df, df_index, som_bmu, gfp_key, cy3_key):
     plt.figure(figsize=(10, 4))
     plot_trend(arr=SOM_, color=[0.2,0.2,0.2])
     plt.xlabel('Relative time between two divisions (%)', fontsize=15)
+    plt.ylabel('Normalized value (A.U.)', fontsize=15)
+    plt.tight_layout()
+
+
+def correlation_plot_all(df, df_index, som_bmu):
+    def scale(arr):
+        return (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+
+    def interp(x, y, out):
+        return interpolate.interp1d(x, y)(out)
+
+    def plot_trend(arr, color):
+        mean = scale(np.mean(arr, axis=0))
+        plt.plot(mean, color=color, linewidth=3)
+        plt.plot(mean + np.std(arr, axis=0), color=color, linewidth=1)
+        plt.plot(mean - np.std(arr, axis=0), color=color, linewidth=1)
+        plt.title(f"Spearman:{spearmanr(mean, range(len(mean))).correlation: 0.2f},  Kendall's tau:{kendalltau(mean, range(len(mean))).correlation: 0.2f}")
+
+    df['som'] = np.nan
+    df.loc[df_index.flatten(), 'som'] = som_bmu
+
+    interp_size = 100
+    track_indices = sorted(df.loc[df_index.flatten(), 'TRACK_ID'].unique())
+    out = scale(np.array(range(interp_size)))
+    SOM_ = []
+
+    for i, key in enumerate(track_indices[::100]):
+        som_ = df.loc[df['TRACK_ID'] == key, 'som'].values
+        som_ = som_[~np.isnan(som_)]     # Remove empty values
+        som_ = np.roll(som_, -np.argmin(som_)) # track sync on min som cluster number
+#         som_ = som_[:np.argmax(som_)] # sync between min and max som cluster number, unfair
+        if len(som_) < 10: continue
+        time = scale(np.arange(len(som_))) # relative time
+        som_ = interp(time, som_, out)
+        SOM_.append(som_)
+
+    SOM_ = scale(np.array(SOM_))
+
+    plt.style.use('default')
+    plt.figure(figsize=(10, 4))
+    plot_trend(arr=SOM_, color=[0.2,0.2,0.2])
+    plt.xlabel('Relative time (%)', fontsize=15)
     plt.ylabel('Normalized value (A.U.)', fontsize=15)
     plt.tight_layout()
