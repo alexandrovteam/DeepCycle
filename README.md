@@ -1,6 +1,6 @@
 # DeepCycle
 
-This README outlines the steps required to reproduce the approach presented in the *DeepCycle* manuscript. These instructions show how to run the model on the data used in the paper and on new unseen data.
+This README outlines the steps required to reproduce the approach presented in the manuscript [Rappez et al. DeepCycle reconstructs a cyclic cell cycle trajectory from unsegmented cell images using convolutional neural networks. Molecular Systems Biology, 2020](https://www.embopress.org/doi/full/10.15252/msb.20209474). These instructions show how to run the model on the data used in the paper and on new unseen data.
 
 #### Requirements
 [keras](https://keras.io), [UMAP](https://github.com/lmcinnes/umap), [cv2](https://pypi.org/project/opencv-python/), [albumentations](https://github.com/albumentations-team/albumentations), [classification_models](https://github.com/qubvel/classification_models)  
